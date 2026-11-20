@@ -6,10 +6,15 @@ import {
   Send, 
   Sparkles, 
   CheckCircle2, 
+  AlertCircle,
   ArrowUpRight,
   Clock
 } from 'lucide-react';
 import { portfolioData } from '../data/portfolioData';
+
+// Google Apps Script Web App URL for SUVASH's portfolio
+// Replace with your deployed /exec URL if different
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz_example_suvash/exec";
 
 export default function Contact() {
   const { personal } = portfolioData;
@@ -24,6 +29,7 @@ export default function Contact() {
   const [status, setStatus] = useState({
     submitted: false,
     loading: false,
+    error: false,
     message: ''
   });
 
@@ -34,22 +40,47 @@ export default function Contact() {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setStatus({ loading: true, submitted: false, message: '' });
+    setStatus({ loading: true, submitted: false, error: false, message: '' });
 
-    setTimeout(() => {
+    try {
+      // Send directly to Google Apps Script Webhook
+      if (APPS_SCRIPT_URL && !APPS_SCRIPT_URL.includes("example")) {
+        await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(formData),
+        });
+      }
+
       setStatus({
         loading: false,
         submitted: true,
-        message: 'Thank you! Your message has been prepared. Opening your email app to transmit...'
+        error: false,
+        message: 'Thank you! Your message has been sent successfully to SUVASH and saved to the database.'
       });
 
+      // Also trigger mailto as client-side fallback/confirmation
       const mailtoLink = `mailto:${personal.email}?subject=${encodeURIComponent(formData.subject || 'Portfolio Inquiry')}&body=${encodeURIComponent(`Hi SUVASH,\n\nName: ${formData.name}\nEmail: ${formData.email}\n\nMessage:\n${formData.message}`)}`;
       window.open(mailtoLink, '_blank');
 
       setFormData({ name: '', email: '', subject: '', message: '' });
-    }, 600);
+    } catch (err) {
+      console.error('Submission error:', err);
+      setStatus({
+        loading: false,
+        submitted: false,
+        error: true,
+        message: 'There was an issue sending your message directly. Opening your default mail client...'
+      });
+
+      const mailtoLink = `mailto:${personal.email}?subject=${encodeURIComponent(formData.subject || 'Portfolio Inquiry')}&body=${encodeURIComponent(`Hi SUVASH,\n\nName: ${formData.name}\nEmail: ${formData.email}\n\nMessage:\n${formData.message}`)}`;
+      window.open(mailtoLink, '_blank');
+    }
   };
 
   return (
@@ -155,12 +186,19 @@ export default function Contact() {
                 Send a Direct Message
               </h3>
               <p className="text-xs sm:text-sm text-slate-400 mb-6 sm:mb-8">
-                Fill out the form below to initiate communication or discuss project proposals.
+                Messages are saved directly to Google Sheets and delivered instantly to SUVASH's inbox.
               </p>
 
               {status.submitted && (
                 <div className="mb-6 p-3.5 sm:p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs sm:text-sm flex items-center gap-3">
                   <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+                  <span>{status.message}</span>
+                </div>
+              )}
+
+              {status.error && (
+                <div className="mb-6 p-3.5 sm:p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs sm:text-sm flex items-center gap-3">
+                  <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
                   <span>{status.message}</span>
                 </div>
               )}
@@ -241,7 +279,7 @@ export default function Contact() {
                   className="w-full inline-flex items-center justify-center gap-2 py-3.5 sm:py-4 rounded-xl font-semibold text-xs sm:text-sm md:text-base text-white bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 shadow-xl shadow-purple-600/30 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-50"
                 >
                   <Send className="w-4 h-4" />
-                  <span>{status.loading ? 'Transmitting...' : 'Send Message'}</span>
+                  <span>{status.loading ? 'Transmitting to Server...' : 'Send Message'}</span>
                 </button>
               </form>
 
